@@ -10,7 +10,6 @@ The vector field is basically the two (three for 3D volume) eigenvectors calcula
 """
 
 #%%
-
 import numpy as np
 import scipy.linalg as lin
 import matplotlib.pyplot as plt
@@ -57,8 +56,7 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
         all_lines.append(line)                          # full line added to the list
         
     return all_lines
-            
-    
+
 #%%
 
 # create a 2D vector field
@@ -75,13 +73,11 @@ T[:, :, 1, 1] = dy * dy
 T[:, :, 0, 1] = dx * dy
 T[:, :, 1, 0] = T[:, :, 0, 1]
 
-#%% 
-
 # calculate the eigenvectors
 vec_field = np.empty((T.shape[0], T.shape[1], 2))
 for i in range(T.shape[0]):
     for j in range(T.shape[1]):
-        tensor_field = T[i, j, :, :]
+        tensor_field = T[i, j]
         eigvals, eigvecs = lin.eigh(tensor_field)                   # sorted
         vec_field[i, j] = eigvecs[:, 0]                             # smallest eigenvector
         
@@ -120,13 +116,24 @@ for x, y in zip(x_coordinates, y_coordinates):
     if -5 <= x <= 5 and -5 <= y <= 5:
         seed_pts.append((x, y))
 
-plt.figure(figsize=(8, 8))
+fig = plt.figure(figsize=(8, 8))
+ax = fig.add_subplot(1, 1, 1)
+
+major = np.arange(-10, 101, 10)
+minor = np.arange(0, 101, 5)
+ax.set_xticks(major)
+ax.set_xticks(minor, minor=True)
+ax.set_yticks(major)
+ax.set_yticks(minor, minor=True)
+
 plt.imshow(np.zeros_like(X), extent=(-10, 10, -10, 10), cmap='gray')
 plt.scatter(*zip(*seed_pts), color='red', label='Seed Points')
 plt.legend()
+plt.grid()
 plt.xlim(-10, 10)
 plt.ylim(-10, 10)
 #plt.show()
+
 #%%
 img_range = [[-10, 10], [-10, 10]]
 all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
