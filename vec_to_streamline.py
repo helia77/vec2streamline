@@ -11,8 +11,9 @@ The vector field is basically the two (three for 3D volume) eigenvectors calcula
 
 #%%
 import numpy as np
-import scipy.linalg as lin
+import numpy.linalg as lin
 import matplotlib.pyplot as plt
+from scipy.interpolate import RectBivariateSpline
 #%%
 # inputs:
     # vec_field:    a XxYx2 array containing the tensor field
@@ -23,6 +24,17 @@ import matplotlib.pyplot as plt
     
 def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0.1):
     all_lines = []
+    # Create a RectBivariateSpline for both dimensions (x and y)
+    x_range =  np.linspace(-10, 10, N)
+    x_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,0])
+    y_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,1])
+    xx = seed_pts[0][0]
+    yy = seed_pts[0][1]
+    interpolated_x = x_spline(xx, yy)
+    interpolated_y = y_spline(xx, yy)
+    
+    interpolated_vector = np.array([interpolated_x, interpolated_y])
+    
     for i in range(len(seed_pts)):
         line = []
         (x, y) = seed_pts[i]
@@ -33,7 +45,7 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
             # mapping the meshgrid range to integer variable to access the vector field as an array
             xi = int((x + 10) * (9/ 20))
             yi = int((y + 10) * (9/ 20))
-            vector = vec_field[xi, yi]
+            vector = interpolated_vector[xi, yi]
             
             vec_size = np.sqrt(vector[0]**2 + vector[1]**2)
             
@@ -64,7 +76,7 @@ N = 100
 x_range = np.linspace(-10, 10, N)
 X, Y = np.meshgrid(x_range, x_range)
 R = np.sqrt(X**2 + Y**2)
-dx, dy = np.gradient(R)
+dy, dx = np.gradient(R)
 
 # create structure tensor
 T = np.zeros((dx.shape[0], dy.shape[0], 2, 2))
@@ -137,9 +149,10 @@ plt.ylim(-10, 10)
 #%%
 img_range = [[-10, 10], [-10, 10]]
 all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
-#plt.scatter(*zip(*all_lines[1]), color='blue', marker='.', label='Seed Points')
-#plt.show()
+plt.scatter(*zip(*all_lines[0]), color='blue', marker='.', label='Seed Points')
+plt.show()
 
+#%%
 for i in range(num_points):
     plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
     plt.show()
