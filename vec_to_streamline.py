@@ -14,6 +14,7 @@ import numpy as np
 import numpy.linalg as lin
 import matplotlib.pyplot as plt
 from scipy.interpolate import RectBivariateSpline
+import threading
 #%%
 # inputs:
     # vec_field:    a XxYx2 array containing the tensor field
@@ -21,31 +22,36 @@ from scipy.interpolate import RectBivariateSpline
     # img_range:    the ranges for x and y axis of the iamge as two variables
     # iters:        number of iterations for the Euler integration
     # epsilon:      smallest value to compare the smallest possible vector size with
+
     
 def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0.05):
     all_lines = []
     delta_t = 0.5
-    prev_vector = [1, 1]
-    
+
     # Create a RectBivariateSpline for both dimensions (x and y)
     x_range =  np.linspace(-10, 10, 100)                                    # coordinates in ascending orver
     x_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,0])      # bivariate spline approximation over a rectangular mesh
     y_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,1])
     
-    for i in range(len(seed_pts)):
-        line = []
-        (x, y) = seed_pts[i]
-        line.append([x, y])                                                 # first point added to line list
-        
-        for _ in range(iters):
+    # the Euler integration function takes a starting point (x, y) and returns a line as list of points
+    def euler_intg(x, y, start_vector, line):
+        prev_vector = [1, 1]
+        first = True
+        for j in range(iters):
             # finding the new vector at this point
-            interpolated_x = x_spline(x, y)
-            interpolated_y = y_spline(x, y)
+            interpolated_x = np.squeeze(x_spline(x, y))
+            interpolated_y = np.squeeze(y_spline(x, y))
             
-            vector = [np.squeeze(interpolated_x), np.squeeze(interpolated_y)]
-
-            if np.dot(vector, prev_vector) < 0:
-                vector = [-vector[0], -vector[1]]
+            vector = [interpolated_x, interpolated_y]
+            
+            # check for any irregular flipped vectors in the way, so all the sequencial vectors are in the same direction
+            if not first and np.dot(vector, prev_vector) < 0:
+                vector = [-v for v in vector]
+            
+            # the starting vector should get assigned outside of the function and leaved unchanged
+            if first:
+                vector = start_vector
+                first = False
                 
             # make sure the vector size is not too small
             vec_size = np.sqrt(vector[0]**2 + vector[1]**2)
@@ -53,25 +59,48 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
                 print('too small')
                 break
             
+            # the next point
             x_n = x + delta_t * vector[0]
             y_n = y + delta_t * vector[1]
             
-            # stops if the point leaves the image
+            # stops if the next point is outside the image bounds
             if x_n > img_range[0][-1] or x_n < img_range[0][0]:
                 print('x out of range')
                 break
-            if y_n > img_range[1][-1] or y_n < img_range[1][0]: 
+            if y_n > img_range[1][-1] or y_n < img_range[1][0]:
                 print('y out of range')
                 break
             
-            line.append([x_n, y_n])                                         # new point added to line list
+            line.append([x_n, y_n])                                             # new point added to line list
             
-            x = x_n                                                         # current point updates
-            y = y_n                                                         # current point updates
-            prev_vector = vector
+            x = x_n                                                             # current point updated
+            y = y_n                                                             # current point updated
+            prev_vector = vector                                                # previous vector updated
             
-            
-        print('iteration done')
+        return line
+        
+    for i in range(len(seed_pts)):
+        line = []
+        (x, y) = seed_pts[i]
+        line.append([x, y])                                                 # first point added to line list
+        # finding the vector at the starting point
+        interpolated_x = np.squeeze(x_spline(x, y))
+        interpolated_y = np.squeeze(y_spline(x, y))
+        
+        start_vector = [interpolated_x, interpolated_y]
+        # run the Euler integration from each seed points twice; one for each direction
+        t1 = threading.Thread(target=euler_intg, args=(x, y, start_vector, line))
+        
+        (x, y) = seed_pts[i]                                                # start again from the seed point
+        new_vector = [-v for v in start_vector]                             # changes to the other direction
+        t2 = threading.Thread(target=euler_intg, args=(x, y, new_vector, line))
+        
+        t1.start()
+        t2.start()
+        
+        t1.join()
+        t2.join()
+        
         all_lines.append(line)                                              # full line added to the list
         
     return all_lines
@@ -99,11 +128,6 @@ for i in range(T.shape[0]):
         tensor_field = T[i, j]
         eigvals, eigvecs = lin.eigh(tensor_field)                           # sorted
         vec_field[i, j] = eigvecs[:, 0]                                     # smallest eigenvector
-        
-#%%
-
-plt.imshow(R, cmap='gray')
-plt.show()
 
 #%%
 # Create a streamplot
@@ -120,7 +144,7 @@ plt.show()
 
 #%%
 # create random points on a circle
-num_points = 50
+num_points = 20
 
 angles = np.random.uniform(0, 2 * np.pi, num_points)
 
@@ -136,7 +160,7 @@ for x, y in zip(x_coordinates, y_coordinates):
 
 #%%
 # create random points on the plane
-seed_pts = [(np.random.uniform(-8.0, 8.0), np.random.uniform(-8.0, 8.0)) for _ in range(30)]
+seed_pts = [(np.random.uniform(-8.0, 8.0), np.random.uniform(-8.0, 8.0)) for _ in range(num_points)]
 
 
 #%%
@@ -161,12 +185,9 @@ plt.ylim(-10, 10)
 #%%
 img_range = [[-10, 10], [-10, 10]]
 all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
-#%%
-plt.scatter(*zip(*all_lines[6]), color='blue', marker='.', label='Seed Points')
-plt.show()
 
 #%%
-for i in range(30):
+for i in range(num_points):
     plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
     plt.show()
 #%%
