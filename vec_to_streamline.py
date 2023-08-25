@@ -22,50 +22,57 @@ from scipy.interpolate import RectBivariateSpline
     # iters:        number of iterations for the Euler integration
     # epsilon:      smallest value to compare the smallest possible vector size with
     
-def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0.1):
+def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0.05):
     all_lines = []
-    # Create a RectBivariateSpline for both dimensions (x and y)
-    x_range =  np.linspace(-10, 10, N)
-    x_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,0])
-    y_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,1])
-    xx = seed_pts[0][0]
-    yy = seed_pts[0][1]
-    interpolated_x = x_spline(xx, yy)
-    interpolated_y = y_spline(xx, yy)
+    delta_t = 0.5
+    prev_vector = [1, 1]
     
-    interpolated_vector = np.array([interpolated_x, interpolated_y])
+    # Create a RectBivariateSpline for both dimensions (x and y)
+    x_range =  np.linspace(-10, 10, 100)                                    # coordinates in ascending orver
+    x_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,0])      # bivariate spline approximation over a rectangular mesh
+    y_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,1])
     
     for i in range(len(seed_pts)):
         line = []
         (x, y) = seed_pts[i]
+        line.append([x, y])                                                 # first point added to line list
         
         for _ in range(iters):
-            line.append([x, y])                         # first point and the updated points after each iteration added
+            # finding the new vector at this point
+            interpolated_x = x_spline(x, y)
+            interpolated_y = y_spline(x, y)
             
-            # mapping the meshgrid range to integer variable to access the vector field as an array
-            xi = int((x + 10) * (9/ 20))
-            yi = int((y + 10) * (9/ 20))
-            vector = interpolated_vector[xi, yi]
-            
+            vector = [np.squeeze(interpolated_x), np.squeeze(interpolated_y)]
+
+            if np.dot(vector, prev_vector) < 0:
+                vector = [-vector[0], -vector[1]]
+                
+            # make sure the vector size is not too small
             vec_size = np.sqrt(vector[0]**2 + vector[1]**2)
-            
             if vec_size < epsilon:
+                print('too small')
                 break
             
-            x_tmp = vector[0] + x
-            y_tmp = vector[1] + y
+            x_n = x + delta_t * vector[0]
+            y_n = y + delta_t * vector[1]
             
             # stops if the point leaves the image
-            if x_tmp > img_range[0][-1] or x_tmp < img_range[0][0]: 
+            if x_n > img_range[0][-1] or x_n < img_range[0][0]:
+                print('x out of range')
                 break
-            if y_tmp > img_range[1][-1] or y_tmp < img_range[1][0]: 
+            if y_n > img_range[1][-1] or y_n < img_range[1][0]: 
+                print('y out of range')
                 break
             
-            x = x_tmp                                   # current point updates
-            y = y_tmp                                   # current point updates
-        
-        line.append([x, y])                             # last point to be updated added
-        all_lines.append(line)                          # full line added to the list
+            line.append([x_n, y_n])                                         # new point added to line list
+            
+            x = x_n                                                         # current point updates
+            y = y_n                                                         # current point updates
+            prev_vector = vector
+            
+            
+        print('iteration done')
+        all_lines.append(line)                                              # full line added to the list
         
     return all_lines
 
@@ -90,8 +97,8 @@ vec_field = np.empty((T.shape[0], T.shape[1], 2))
 for i in range(T.shape[0]):
     for j in range(T.shape[1]):
         tensor_field = T[i, j]
-        eigvals, eigvecs = lin.eigh(tensor_field)                   # sorted
-        vec_field[i, j] = eigvecs[:, 0]                             # smallest eigenvector
+        eigvals, eigvecs = lin.eigh(tensor_field)                           # sorted
+        vec_field[i, j] = eigvecs[:, 0]                                     # smallest eigenvector
         
 #%%
 
@@ -112,10 +119,8 @@ plt.title('Streamplot Example')
 plt.show()
 
 #%%
-
-#num_points = 20
-#seed_pts = [[-2.5, -2.5], [-2.5, 0], [-2.5, 2.5], [0, -2.5], [0, 2.5], [2.5, -2.5], [2.5, 0], [2.5, 2.5]]
-num_points = 20
+# create random points on a circle
+num_points = 50
 
 angles = np.random.uniform(0, 2 * np.pi, num_points)
 
@@ -128,6 +133,13 @@ for x, y in zip(x_coordinates, y_coordinates):
     if -5 <= x <= 5 and -5 <= y <= 5:
         seed_pts.append((x, y))
 
+
+#%%
+# create random points on the plane
+seed_pts = [(np.random.uniform(-8.0, 8.0), np.random.uniform(-8.0, 8.0)) for _ in range(30)]
+
+
+#%%
 fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(1, 1, 1)
 
@@ -149,13 +161,26 @@ plt.ylim(-10, 10)
 #%%
 img_range = [[-10, 10], [-10, 10]]
 all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
-plt.scatter(*zip(*all_lines[0]), color='blue', marker='.', label='Seed Points')
+#%%
+plt.scatter(*zip(*all_lines[6]), color='blue', marker='.', label='Seed Points')
 plt.show()
 
 #%%
-for i in range(num_points):
+for i in range(30):
     plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
     plt.show()
+#%%
+point = [(5, 5)]
+line = vec2streamline_2d(vec_field, point, img_range)
+plt.plot(point[0][0], point[0][1], color='red', marker='o')
+plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')
+
+#%%
+point = [(-8, 8)]
+line = vec2streamline_2d(vec_field, point, img_range)
+plt.plot(point[0][0], point[0][1], color='red', marker='o')
+plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')
+
 
 
 
