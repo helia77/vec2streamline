@@ -56,7 +56,6 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
             # make sure the vector size is not too small
             vec_size = np.sqrt(vector[0]**2 + vector[1]**2)
             if vec_size < epsilon:
-                print('too small')
                 break
             
             # the next point
@@ -65,10 +64,8 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
             
             # stops if the next point is outside the image bounds
             if x_n > img_range[0][-1] or x_n < img_range[0][0]:
-                print('x out of range')
                 break
             if y_n > img_range[1][-1] or y_n < img_range[1][0]:
-                print('y out of range')
                 break
             
             line.append([x_n, y_n])                                             # new point added to line list
@@ -106,102 +103,94 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
     return all_lines
 
 #%%
-
-# create a 2D vector field
-N = 100
-x_range = np.linspace(-10, 10, N)
-X, Y = np.meshgrid(x_range, x_range)
-R = np.sqrt(X**2 + Y**2)
-dy, dx = np.gradient(R)
-
-# create structure tensor
-T = np.zeros((dx.shape[0], dy.shape[0], 2, 2))
-T[:, :, 0, 0] = dx * dx
-T[:, :, 1, 1] = dy * dy
-T[:, :, 0, 1] = dx * dy
-T[:, :, 1, 0] = T[:, :, 0, 1]
-
-# calculate the eigenvectors
-vec_field = np.empty((T.shape[0], T.shape[1], 2))
-for i in range(T.shape[0]):
-    for j in range(T.shape[1]):
-        tensor_field = T[i, j]
-        eigvals, eigvecs = lin.eigh(tensor_field)                           # sorted
-        vec_field[i, j] = eigvecs[:, 0]                                     # smallest eigenvector
-
-#%%
-# Create a streamplot
-plt.figure(figsize=(8, 6))
-plt.streamplot(X, Y, dx, dy, density=1.5, linewidth=1, cmap='viridis')
-
-# Add labels and a title
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.title('Streamplot Example')
-
-# Show the plot
-plt.show()
-
-#%%
-# create random points on a circle
-num_points = 20
-
-angles = np.random.uniform(0, 2 * np.pi, num_points)
-
-radius = 5  # Adjust this radius as needed
-x_coordinates = radius * np.cos(angles)
-y_coordinates = radius * np.sin(angles)
-
-seed_pts = []
-for x, y in zip(x_coordinates, y_coordinates):
-    if -5 <= x <= 5 and -5 <= y <= 5:
-        seed_pts.append((x, y))
-
-
-#%%
-# create random points on the plane
-seed_pts = [(np.random.uniform(-8.0, 8.0), np.random.uniform(-8.0, 8.0)) for _ in range(num_points)]
-
-
-#%%
-fig = plt.figure(figsize=(8, 8))
-ax = fig.add_subplot(1, 1, 1)
-
-major = np.arange(-10, 101, 10)
-minor = np.arange(0, 101, 5)
-ax.set_xticks(major)
-ax.set_xticks(minor, minor=True)
-ax.set_yticks(major)
-ax.set_yticks(minor, minor=True)
-
-plt.imshow(np.zeros_like(X), extent=(-10, 10, -10, 10), cmap='gray')
-plt.scatter(*zip(*seed_pts), color='red', label='Seed Points')
-plt.legend()
-plt.grid()
-plt.xlim(-10, 10)
-plt.ylim(-10, 10)
-#plt.show()
-
-#%%
-img_range = [[-10, 10], [-10, 10]]
-all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
-
-#%%
-for i in range(num_points):
-    plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
+if __name__ == "__main__":
+    # create a 2D vector field
+    N = 100
+    x_range = np.linspace(-10, 10, N)
+    X, Y = np.meshgrid(x_range, x_range)
+    R = np.sqrt(X**2 + Y**2)
+    dy, dx = np.gradient(R)
+    
+    # create structure tensor
+    T = np.zeros((dx.shape[0], dy.shape[0], 2, 2))
+    T[:, :, 0, 0] = dx * dx
+    T[:, :, 1, 1] = dy * dy
+    T[:, :, 0, 1] = dx * dy
+    T[:, :, 1, 0] = T[:, :, 0, 1]
+    
+    # calculate the eigenvectors
+    vec_field = np.empty((T.shape[0], T.shape[1], 2))
+    for i in range(T.shape[0]):
+        for j in range(T.shape[1]):
+            tensor_field = T[i, j]
+            eigvals, eigvecs = lin.eigh(tensor_field)                           # sorted
+            vec_field[i, j] = eigvecs[:, 0]                                     # smallest eigenvector
+    
+    #%%
+    # Create a streamplot
+    plt.figure(figsize=(8, 6))
+    plt.streamplot(X, Y, dx, dy, density=1.5, linewidth=1, cmap='viridis')
+    
+    # Add labels and a title
+    plt.xlabel('X-axis')
+    plt.ylabel('Y-axis')
+    plt.title('Streamplot Example')
+    
+    # Show the plot
     plt.show()
-#%%
-point = [(5, 5)]
-line = vec2streamline_2d(vec_field, point, img_range)
-plt.plot(point[0][0], point[0][1], color='red', marker='o')
-plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')
-
-#%%
-point = [(-8, 8)]
-line = vec2streamline_2d(vec_field, point, img_range)
-plt.plot(point[0][0], point[0][1], color='red', marker='o')
-plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')
-
+    
+    #%%
+    # create random points on a circle
+    num_points = 50
+    
+    angles = np.random.uniform(0, 2 * np.pi, num_points)
+    
+    radius = 5  # Adjust this radius as needed
+    x_coordinates = radius * np.cos(angles)
+    y_coordinates = radius * np.sin(angles)
+    
+    seed_pts = []
+    for x, y in zip(x_coordinates, y_coordinates):
+        if -5 <= x <= 5 and -5 <= y <= 5:
+            seed_pts.append((x, y))
+    
+    
+    #%%
+    # create random points on the plane
+    num_points = 50
+    seed_pts = [(np.random.uniform(-8.0, 8.0), np.random.uniform(-8.0, 8.0)) for _ in range(num_points)]
+    
+    #%%
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(1, 1, 1)
+    
+    major = np.arange(-10, 101, 10)
+    minor = np.arange(0, 101, 5)
+    ax.set_xticks(major)
+    ax.set_xticks(minor, minor=True)
+    ax.set_yticks(major)
+    ax.set_yticks(minor, minor=True)
+    
+    plt.imshow(np.zeros_like(X), extent=(-10, 10, -10, 10), cmap='gray')
+    plt.scatter(*zip(*seed_pts), color='red', label='Seed Points')
+    plt.legend()
+    plt.grid()
+    plt.xlim(-10, 10)
+    plt.ylim(-10, 10)
+    #plt.show()
+    
+    #%%
+    img_range = [[-10, 10], [-10, 10]]
+    all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
+    
+    for i in range(num_points):
+        plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
+        plt.show()
+    #%%
+    point = [(5, 5)]
+    line = vec2streamline_2d(vec_field, point, img_range)
+    plt.plot(point[0][0], point[0][1], color='red', marker='o')
+    plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')
 
 
 
