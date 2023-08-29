@@ -125,7 +125,7 @@ for i in range(tensor.shape[0]):
 img = np.ones((453, 806))
 #%%
 # create random points on the plane
-num_points = 20
+num_points = 200
 seed_pts = [(np.random.randint(10, img.shape[0]), np.random.randint(10, img.shape[1])) for _ in range(num_points)]
 
 plt.figure(figsize=(10, 10))
@@ -140,15 +140,16 @@ plt.ylim(0, img.shape[1])
 #%%
 vec_field = np.load('vector_field.npy')
 img_range = [img.shape[0], img.shape[1]]
-all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
+#%%
+#all_lines = vec2streamline_2d(vec_field, seed_pts, img_range)
 #%%
 #np.save('vector_field.npy', vec_field)
 #%%
-'''iters = 10000
+iters = 10000
 epsilon = 0.05
 
 all_lines = []
-delta_t = 4
+delta_t = 10
 
 # the Euler integration function takes a starting point (x, y) and returns a line as list of points
 def euler_intg(x, y, start_vector, line):
@@ -209,7 +210,7 @@ for i in range(len(seed_pts)):
     
     all_lines.append(line)                                              # full line added to the list
 
-'''
+
 #%%
 
 for i in range(num_points):
