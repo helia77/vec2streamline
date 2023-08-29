@@ -141,7 +141,7 @@ if __name__ == "__main__":
     
     #%%
     # create random points on a circle
-    num_points = 50
+    '''num_points = 50
     
     angles = np.random.uniform(0, 2 * np.pi, num_points)
     
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     seed_pts = []
     for x, y in zip(x_coordinates, y_coordinates):
         if -5 <= x <= 5 and -5 <= y <= 5:
-            seed_pts.append((x, y))
+            seed_pts.append((x, y))'''
     
     
     #%%
@@ -187,10 +187,10 @@ if __name__ == "__main__":
         plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
         plt.show()
     #%%
-    point = [(5, 5)]
+    '''point = [(5, 5)]
     line = vec2streamline_2d(vec_field, point, img_range)
     plt.plot(point[0][0], point[0][1], color='red', marker='o')
-    plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')
+    plt.scatter(*zip(*line[0]), color='blue', marker='.', label='Seed Points')'''
 
 
 
