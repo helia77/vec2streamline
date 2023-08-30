@@ -19,8 +19,8 @@ def structure2d(I, sigma):
 
     # create the structure tensor
     T = np.zeros((img.shape[0], img.shape[1], 2, 2))
-    T[:, :, 0, 0] = dIdx * dIdx
-    T[:, :, 1, 1] = dIdy * dIdy
+    T[:, :, 0, 0] = dIdy * dIdy
+    T[:, :, 1, 1] = dIdx * dIdx
     T[:, :, 0, 1] = dIdx * dIdy
     T[:, :, 1, 0] = T[:, :, 0, 1]
 
@@ -36,7 +36,7 @@ def structure2d(I, sigma):
         # resample the structure tensor
         T_resampled = downscale_local_mean(T_blur, (sigma, sigma, 1, 1))
 
-    return T_resampled
+    return T_blur
 
 if __name__ == "__main__":
     if(len(sys.argv) < 2):

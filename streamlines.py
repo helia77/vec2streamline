@@ -23,6 +23,108 @@ import threading
 # otherwise use the provided list of seed points
 
 # return a list of lines
+
+def vec2streamlines(V, seeds, dt = 4.0, iters = 10000, epsilon = 0.05):
+    all_lines = []
+    x_bound, y_bound, z_bound = V.shape
+    
+    # if seeds is a scalar, generate that many random seed points
+    if isinstance(seeds, int):
+        if   len(V.shape) == 3:                      # for 2D images
+            seed_pts = [(np.random.randint(1, x_bound), np.random.randint(1, y_bound)) for _ in range(seeds)]
+        elif len(V.shape) == 4:                      # for 3D volumes
+            seed_pts = [(np.random.randint(1, x_bound), np.random.randint(1, y_bound), np.random.randint(1, z_bound)) for _ in range(seeds)]
+            
+    elif isinstance((seeds), list):
+        seed_pts = seeds
+    else:
+        print("Wrong data type.")
+        
+    # the Euler integration function takes a starting point (x, y), returns a line (a list of points)
+    def euler_intg(x, y, z, start_vector, line):
+        prev_vector = [1, 1] if z is None else [1, 1, 1]
+        first = True
+        
+        for j in range(iters):
+            vector = V[int(x) - 1, int(y) - 1] if z is None else V[int(x) - 1, int(y) - 1, int(z) - 1]
+            
+            # check for any irregular flipped vectors in the way, so all the sequencial vectors stay in the same direction
+            if not first and np.dot(vector, prev_vector) < 0:
+                vector = [-v for v in vector]
+            
+            # the starting vector is assigned outside of the function and should left unchanged
+            if first:
+                vector = start_vector
+                first = False
+                
+            # make sure the vector size is not too small
+            vec_size = np.linalg.norm(vector)
+            if vec_size < epsilon:
+                break
+            
+            # the next point
+            x_n = x + dt * vector[0]
+            y_n = y + dt * vector[1]
+            z_n = z + dt * vector[2] if z is not None else 0
+                
+            # stops if the next point is outside the image bounds
+            if x_n > x_bound or x_n < 0:
+                break
+            if y_n > y_bound or y_n < 0:
+                break
+            if z_n > z_bound or z_n < 0:
+                break
+            
+            if len(V.shape) == 4:
+                line.append([z_n, y_n, x_n])
+            else:
+                line.append([y_n, x_n])                                         # new point added to line list
+            
+            x = x_n                                                             # current point updated
+            y = y_n                                                             # current point updated
+            z = z_n if z is not None else None
+            prev_vector = vector                                                # previous vector updated
+            
+        return line
+        
+    for i in range(len(seed_pts)):
+        line = []
+        if   len(V.shape) == 3:
+            (x, y) = seed_pts[i]
+            line.append([y, x])                                                     # first point added to line list
+            start_vector = V[int(x) - 1, int(y) - 1]
+            z = None
+            
+        elif len(V.shape) == 4:
+            (x, y, z) = seed_pts[i]
+            line.append([z, y, x])                                                  # first point added to line list
+            start_vector = V[int(x) - 1, int(y) - 1, int(z) - 1]
+        
+        # run the Euler integration from each seed points twice; one for each direction
+        t1 = threading.Thread(target=euler_intg, args=(x, y, z, start_vector, line))
+        
+        if   len(V.shape) == 3:
+            (x, y) = seed_pts[i]                                                    # start over from the seed point
+            z = None
+        elif len(V.shape) == 4:
+            (x, y, z) = seed_pts[i]
+            
+        new_vector = [-v for v in start_vector]                                     # changes to the other direction
+        t2 = threading.Thread(target=euler_intg, args=(x, y, z, new_vector, line))
+        
+        t1.start()
+        t2.start()
+        
+        t1.join()
+        t2.join()
+        
+        all_lines.append(line)                                              # full line added to the list
+        
+    return all_lines
+
+
+
+
 #%%
 # inputs:
     # vec_field:    a XxYx2 array containing the tensor field

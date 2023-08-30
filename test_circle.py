@@ -1,6 +1,5 @@
 import streamlines as sl
 import numpy as np
-import scipy as sp
 import matplotlib.pyplot as plt
 
 # create a 2D vector field
