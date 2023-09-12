@@ -4,28 +4,40 @@ import matplotlib.pyplot as plt
 
 # create a 2D vector field
 N = 100
-x_range = np.linspace(-10, 10, N)
-X, Y = np.meshgrid(x_range, x_range)
-R = np.sqrt(X**2 + Y**2)
-dy, dx = np.gradient(R)
+M = 200
+range_0 = np.linspace(-10, 10, N)
+range_1 = np.linspace(-20, 20, M)
+mesh = np.meshgrid(range_0, range_1)
+R = np.sqrt(mesh[0]**2 + mesh[1]**2)
+d0 = np.gradient(R, axis=0)
+d1 = np.gradient(R, axis=1)
 
 # create structure tensor
-T = np.zeros((dx.shape[0], dy.shape[0], 2, 2))
-T[:, :, 0, 0] = dy * dy
-T[:, :, 1, 1] = dx * dx
-T[:, :, 0, 1] = dx * dy
+T = np.zeros((d0.shape[0], d1.shape[1], 2, 2))
+T[:, :, 0, 0] = d0 * d0
+T[:, :, 1, 1] = d1 * d1
+T[:, :, 0, 1] = d0 * d1
 T[:, :, 1, 0] = T[:, :, 0, 1]
 
-# calculate the eigenvectors
-vec_field = np.empty((T.shape[0], T.shape[1], 2))
-eigvals, eigvecs = np.linalg.eigh(T)
-vec_field = eigvecs[:, :, 1]
+all_lines, seeds = sl.tensor2streamlines(T, 8)
 
+#for li in range(len(all_lines)):
+#    plt.plot(all_lines[li][:, 0], all_lines[li][:, 1])
+
+fig = plt.figure(figsize=(8, 8))
+ax = fig.add_subplot(1, 1, 1)
+#plt.imshow(np.zeros_like(X), extent=(0, 100, 0, 100), cmap='gray')
+#plt.imshow(R)
+for i in range(len(all_lines)):
+    #plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
+    plt.plot(all_lines[i][:, 0], all_lines[i][:, 1])
+    plt.show()
+plt.scatter(*zip(*seeds), color='red', label='Seed Points')
 
 #%%
 # Create a streamplot
 plt.figure(figsize=(8, 6))
-plt.streamplot(X, Y, dx, dy, density=1.5, linewidth=1, cmap='viridis')
+plt.streamplot(mesh[0], mesh[1], d1, d0, linewidth=1.5)
 
 # Add labels and a title
 plt.xlabel('X-axis')
@@ -56,7 +68,6 @@ for x, y in zip(x_coordinates, y_coordinates):
 num_points = 50
 seed_pts = [(np.random.uniform(-8.0, 8.0), np.random.uniform(-8.0, 8.0)) for _ in range(num_points)]
 
-#%%
 fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(1, 1, 1)
 
@@ -77,9 +88,9 @@ plt.ylim(-10, 10)
 
 #%%
 img_range = [[-10, 10], [-10, 10]]
-all_lines = sl.vec2streamline_2d(vec_field, seed_pts, img_range)
+all_lines = sl.vec2streamlines(T, seed_pts, img_range)
 
-for i in range(num_points):
+for i in range(len(all_lines)):
     plt.scatter(*zip(*all_lines[i]), color='blue', marker='.', label='Seed Points')
     plt.show()
 #%%

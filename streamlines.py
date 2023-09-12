@@ -13,10 +13,138 @@ The vector field is basically the two (three for 3D volume) eigenvectors calcula
 import numpy as np
 import numpy.linalg as lin
 import matplotlib.pyplot as plt
-from scipy.interpolate import RectBivariateSpline
+import scipy as sp
 import threading
+import scipy.interpolate
+#%%
+# 1) seed (x0, y0)
+# 2) Euler step (xn, yn)
+# 2a) Evaluate tensor T(xn, yn) interpolate
+# 2b) Eigendecomposition V(xn, yn)
+# 2c) Dot product to get V_hat(xn, yn)
 
+# returns: list of numpy arrays containing points for each streamline
+#          seed points
+def tensor2streamlines(T, S, evec = 0, dt = 4.0, epsilon = 0.5):
+    
+    # for this function, we use X to represent the 0 index and Y to represent the 1 index
+    # start with an empty list of lines
+    all_lines = []
 
+    # create splines representing the vector fields
+    xx_spline = sp.interpolate.RectBivariateSpline(range(T.shape[0]), range(T.shape[1]), T[:, :, 0, 0])
+    yy_spline = sp.interpolate.RectBivariateSpline(range(T.shape[0]), range(T.shape[1]), T[:, :, 1, 1])    
+    xy_spline = sp.interpolate.RectBivariateSpline(range(T.shape[0]), range(T.shape[1]), T[:, :, 0, 1])
+    
+    # generate seed points
+    seeds = np.zeros((S, 2))
+    seeds[:, 0] = np.random.randint(1, T.shape[0] - 1, S)
+    seeds[:, 1] = np.random.randint(1, T.shape[1] - 1, S)
+    
+    # for each seed point
+    for si in range(S):
+
+        # create a line tracing the vector field forward
+        line_forward = []
+        
+        # initialize the seed point
+        x0 = seeds[si, 0]
+        y0 = seeds[si, 1]
+        
+        # evaluate tensor from interpolation
+        T0 = np.zeros((2, 2))
+        T0[0, 0] = np.squeeze(xx_spline(x0, y0))
+        T0[1, 1] = np.squeeze(yy_spline(x0, y0))
+        T0[0, 1] = np.squeeze(xy_spline(x0, y0))        
+        T0[1, 0] = T0[0, 1]
+        
+        # eigendecompostion
+        evals, evecs = np.linalg.eigh(T0)       # ascending order
+        V = evecs[:, evec]                         # largest eigenvector
+        
+        
+        # trace the streamlines until you reach the edge of the vector field
+        while x0 < T.shape[0] and x0 > 0 and y0 < T.shape[1] and y0 > 0:
+            line_forward.append((x0, y0))
+            
+            # Euler step
+            xn = x0 + dt * V[0]
+            yn = y0 + dt * V[1]
+            
+            # evaluate tensor from interpolation of T(xn, yn)
+            Tn = np.zeros((2,2))
+            Tn[0, 0] = np.squeeze(xx_spline(xn, yn))
+            Tn[1, 1] = np.squeeze(yy_spline(xn, yn))
+            Tn[0, 1] = np.squeeze(xy_spline(xn, yn))        
+            Tn[1, 0] = Tn[0, 1]
+            
+            # eigendecompostion
+            evals, evecs = np.linalg.eigh(Tn)
+            Vn = evecs[:, evec]
+            
+            # check for dot product
+            #prev_vector = np.array(xn - x0, yn - y0)
+            dot = np.dot(Vn, np.array([xn - x0, yn - y0]))
+            if (dot < 0):
+                break #V = [-v for v in Vn]
+            else:
+                V = Vn
+            
+            if abs(evals[evec]) < epsilon:
+                print('small vector')
+                break
+            
+            x0 = xn
+            y0 = yn
+            
+        # do the same thing tracing the vector field backwards
+        line_backward = []
+        
+        # initialize the seed point
+        x0 = seeds[si, 0]
+        y0 = seeds[si, 1]
+        
+        # eigendecompostion
+        evals, evecs = np.linalg.eigh(T0)                   # ascending order
+        V = np.asarray([-e for e in evecs[:, evec]])           # flips the initial vector
+        
+        while x0 < T.shape[0] and x0 > 0 and y0 < T.shape[1] and y0 > 0:
+            line_backward.append((x0, y0))
+            
+            # Euler step
+            xn = x0 + dt * V[0]
+            yn = y0 + dt * V[1]
+            
+            # evaluate tensor from interpolation of T(xn, yn)
+            Tn = np.zeros((2,2))
+            Tn[0, 0] = np.squeeze(xx_spline(xn, yn))
+            Tn[1, 1] = np.squeeze(yy_spline(xn, yn))
+            Tn[0, 1] = np.squeeze(xy_spline(xn, yn))        
+            Tn[1, 0] = Tn[0, 1]
+            
+            # eigendecompostion
+            evals, evecs = np.linalg.eigh(Tn)
+            Vn = evecs[:, evec]
+            
+            # check for dot product
+            dot = np.dot(Vn, np.array([xn - x0, yn - y0]))
+            # flip the vector if dot product is negatives
+            if (dot < 0):
+                V = np.asarray([-v for v in Vn])
+            else:
+                V = Vn
+            
+            if abs(evals[evec]) < epsilon:
+                print('small vector')
+                break
+            
+            x0 = xn
+            y0 = yn
+        # backward lines are reverses, minus the initial seed point because is already added to the forward line
+        all_lines.append(np.asarray(line_backward[::-1][:-1] + line_forward))
+        
+    return all_lines, seeds
+#%%
 # def vec2streamlines(V, seeds = 100, dt = 1.0, iters = 10000, epsilon = 0.05)
 
 # if seeds is a scalar, generate that many random seed points
@@ -24,9 +152,9 @@ import threading
 
 # return a list of lines
 
-def vec2streamlines(V, seeds, dt = 4.0, iters = 10000, epsilon = 0.05):
+def vec2streamlines_old(V, seeds, dt = 4.0, iters = 10000, epsilon = 0.05):
     all_lines = []
-    x_bound, y_bound, z_bound = V.shape
+    x_bound, y_bound, z_bound = V.shape[0], V.shape[1], V.shape[2]
     
     # if seeds is a scalar, generate that many random seed points
     if isinstance(seeds, int):
@@ -48,7 +176,7 @@ def vec2streamlines(V, seeds, dt = 4.0, iters = 10000, epsilon = 0.05):
         for j in range(iters):
             vector = V[int(x) - 1, int(y) - 1] if z is None else V[int(x) - 1, int(y) - 1, int(z) - 1]
             
-            # check for any irregular flipped vectors in the way, so all the sequencial vectors stay in the same direction
+            # check for any irregular flipped vectors in the way, so all vectors stay in the same direction
             if not first and np.dot(vector, prev_vector) < 0:
                 vector = [-v for v in vector]
             
@@ -122,9 +250,6 @@ def vec2streamlines(V, seeds, dt = 4.0, iters = 10000, epsilon = 0.05):
         
     return all_lines
 
-
-
-
 #%%
 # inputs:
     # vec_field:    a XxYx2 array containing the tensor field
@@ -140,8 +265,8 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
 
     # Create a RectBivariateSpline for both dimensions (x and y)
     x_range =  np.linspace(-10, 10, 100)                                    # coordinates in ascending orver
-    x_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,0])      # bivariate spline approximation over a rectangular mesh
-    y_spline = RectBivariateSpline(x_range, x_range, vec_field[:,:,1])
+    x_spline = sp.RectBivariateSpline(x_range, x_range, vec_field[:,:,0])      # bivariate spline approximation over a rectangular mesh
+    y_spline = sp.RectBivariateSpline(x_range, x_range, vec_field[:,:,1])
     
     # the Euler integration function takes a starting point (x, y) and returns a line as list of points
     def euler_intg(x, y, start_vector, line):
@@ -212,3 +337,83 @@ def vec2streamline_2d(vec_field, seed_pts, img_range, iters = 10000, epsilon = 0
         
     return all_lines
 
+
+#%%
+def vec2streamlines_new(V, S, dt = 3.0, iters = 10000, epsilon = 0.05):
+    
+    # start with an empty list of lines
+    all_lines = []
+    
+    # create splines representing the vector fields
+    x_spline = sp.interpolate.RectBivariateSpline(range(V.shape[0]), range(V.shape[1]), V[:, :, 0])
+    y_spline = sp.interpolate.RectBivariateSpline(range(V.shape[0]), range(V.shape[1]), V[:, :, 1])
+    
+    # generate seed points
+    seeds = np.zeros((S, 2))
+    seeds[:, 0] = np.random.randint(1, V.shape[0], S)
+    seeds[:, 1] = np.random.randint(1, V.shape[1], S)
+    
+    # for each seed point
+    for si in range(S):
+
+        # create a line tracing the vector field forward
+        line_forward = []
+        
+        # initialize the seed point
+        x0 = seeds[si, 0]
+        y0 = seeds[si, 1]
+        dx0dt = np.squeeze(x_spline(x0, y0))
+        dy0dt = np.squeeze(y_spline(x0, y0))
+        
+        # trace the streamlines until you reach the edge of the vector field
+        while x0 < V.shape[0] and x0 > 0 and y0 < V.shape[1] and y0 > 0:
+            line_forward.append((x0, y0))
+            
+            dxdt = np.squeeze(x_spline(x0, y0))
+            dydt = np.squeeze(y_spline(x0, y0))
+            
+            if dx0dt * dxdt + dy0dt * dydt < 0:
+                dxdt = -dxdt
+                dydt = -dydt
+                
+            # Euler step
+            x0 = x0 + dt * dxdt
+            y0 = y0 + dt * dydt
+            
+            dx0dt = dxdt
+            dy0dt = dydt
+            
+        # do the same thing tracing the vector field backwards
+        line_backward = []
+        
+        # initialize the seed point
+        x0 = seeds[si, 0]
+        y0 = seeds[si, 1]
+        line_backward.append((x0, y0))
+        
+        dx0dt = np.squeeze(x_spline(x0, y0))
+        dy0dt = np.squeeze(y_spline(x0, y0))
+        
+        # Euler step
+        x0 = x0 - dt * dxdt
+        y0 = y0 - dt * dydt
+        
+        while x0 < V.shape[0] and x0 > 0 and y0 < V.shape[1] and y0 > 0:
+            line_backward.append((x0, y0))
+            
+            dxdt = np.squeeze(x_spline(x0, y0))
+            dydt = np.squeeze(y_spline(x0, y0))
+            
+            if dx0dt * dxdt + dy0dt * dydt < 0:
+                dxdt = -dxdt
+                dydt = -dydt
+            
+            # Euler step
+            x0 = x0 + dt * dxdt
+            y0 = y0 + dt * dydt
+            
+            dx0dt = dxdt
+            dy0dt = dydt
+                  
+        all_lines.append(np.asarray(line_backward[::-1][:-1] + line_forward))
+    return all_lines
