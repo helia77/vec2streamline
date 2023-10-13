@@ -17,6 +17,7 @@ import streamlines as sl
 I = skimage.io.imread('sample.png')[:,:, 0]
 T = st.structure2d(I, 5)
 
+<<<<<<< Updated upstream
 num_points = 200
 lines, seeds = sl.tensor2streamlines(T, num_points, 0, 10)
 
@@ -32,6 +33,17 @@ plt.ylabel('Y-axis')
 plt.title('Streamplot Example')
 
 plt.show()
+=======
+V = evecs[:, :, 0]                                  # the vector field is all the smallest vectors
+num_points = 100
+lines = sl.vec2streamlines(V, num_points, 10)
+plt.imshow(I)
+for i in range(num_points):
+    plt.scatter(*zip(*lines[i]), color='blue', marker='.', label='Seed Points')
+    plt.show()
+
+
+>>>>>>> Stashed changes
 #%%
 
 vol = np.load('cube.npy')

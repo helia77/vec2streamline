@@ -1,7 +1,10 @@
 import numpy as np
 import scipy as sp
 from skimage.color import rgb2gray
+<<<<<<< Updated upstream
 import scipy.ndimage
+=======
+>>>>>>> Stashed changes
 
 def structure2d(I, sigma):
 
